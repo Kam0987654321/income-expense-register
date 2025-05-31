@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="gu">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>આવક-જાવક રજીસ્ટર</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: sans-serif; background: #f3f4f6; padding: 20px; }
+    h1 { text-align: center; color: #00796b; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    thead { background: #00796b; color: white; }
+    tfoot { background: #e0f7fa; font-weight: bold; }
+    input, button { padding: 6px 10px; margin: 4px; }
+    #formContainer { background: white; padding: 10px; border-radius: 6px; }
+    #monthlyChart { margin-top: 30px; background: #fff; padding: 10px; border-radius: 10px; }
+  </style>
+  <script>
+    let count = 1;
+    let chart;
+
+    function calculateTotals() {
+      const rows = document.querySelectorAll("#dataTable tbody tr");
+      let totalIncome = 0;
+      let totalExpense = 0;
+      let totalOverall = 0;
+      let totalSaving = 0;
+
+      const monthly = {};
+
+      rows.forEach(row => {
+        const date = row.cells[1].innerText;
+        const month = date.slice(0, 7);
+
+        const income = parseFloat(row.cells[3].innerText) || 0;
+        const expense = parseFloat(row.cells[4].innerText) || 0;
+        const total = income + expense;
+        const saving = income - expense;
+
+        totalIncome += income;
+        totalExpense += expense;
+        totalOverall += total;
+        totalSaving += saving;
+
+        if (!monthly[month]) monthly[month] = { income: 0, expense: 0 };
+        monthly[month].income += income;
+        monthly[month].expense += expense;
+      });
+
+      document.getElementById("totalIncome").innerText = "₹" + totalIncome;
+      document.getElementById("totalExpense").innerText = "₹" + totalExpense;
+      document.getElementById("totalOverall").innerText = "₹" + totalOverall;
+      document.getElementById("totalSaving").innerText = "₹" + totalSaving;
+
+      renderChart(monthly);
+    }
+
+    function addEntry() {
+      const date = document.getElementById("date").value;
+      const place = document.getElementById("place").value;
+      const income = parseFloat(document.getElementById("income").value) || 0;
+      const expense = parseFloat(document.getElementById("expense").value) || 0;
+      const total = income + expense;
+      const saving = income - expense;
+
+      const table = document.getElementById("dataTable").getElementsByTagName("tbody")[0];
+      const row = table.insertRow();
+
+      row.insertCell(0).innerText = count++;
+      row.insertCell(1).innerText = date;
+      row.insertCell(2).innerText = place;
+      row.insertCell(3).innerText = income;
+      row.insertCell(4).innerText = expense;
+      row.insertCell(5).innerText = total;
+      row.insertCell(6).innerText = saving;
+      row.insertCell(7).innerHTML = '<button onclick="editRow(this)">✏️</button> <button onclick="deleteRow(this)">🗑️</button>';
+
+      calculateTotals();
+
+      document.getElementById("date").value = "";
+      document.getElementById("place").value = "";
+      document.getElementById("income").value = "";
+      document.getElementById("expense").value = "";
+    }
+
+    function deleteRow(btn) {
+      const row = btn.closest("tr");
+      row.remove();
+      calculateTotals();
+    }
+
+    function editRow(btn) {
+      const row = btn.closest("tr");
+      document.getElementById("date").value = row.cells[1].innerText;
+      document.getElementById("place").value = row.cells[2].innerText;
+      document.getElementById("income").value = row.cells[3].innerText;
+      document.getElementById("expense").value = row.cells[4].innerText;
+      row.remove();
+      calculateTotals();
+    }
+
+    function exportToExcel() {
+      const table = document.getElementById("dataTable");
+      const workbook = XLSX.utils.table_to_book(table, {sheet: "Sheet1"});
+      XLSX.writeFile(workbook, "income-expense.xlsx");
+    }
+
+    function renderChart(data) {
+      const ctx = document.getElementById('monthlyChart').getContext('2d');
+      const labels = Object.keys(data);
+      const incomeData = labels.map(m => data[m].income);
+      const expenseData = labels.map(m => data[m].expense);
+
+      if (chart) chart.destroy();
+
+      chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'આવક ₹',
+              data: incomeData,
+              backgroundColor: '#4caf50'
+            },
+            {
+              label: 'જાવક ₹',
+              data: expenseData,
+              backgroundColor: '#f44336'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: 'top'
+            },
+            title: {
+              display: true,
+              text: 'માસિક આવક અને જાવક'
+            }
+          }
+        }
+      });
+    }
+  </script>
+</head>
+<body>
+  <h1>આવક - જાવક રજીસ્ટર</h1>
+
+  <div id="formContainer">
+    <input type="date" id="date" required />
+    <input type="text" id="place" placeholder="સ્થળનુ નામ" required />
+    <input type="number" id="income" placeholder="આવક ₹" />
+    <input type="number" id="expense" placeholder="જાવક ₹" />
+    <button onclick="addEntry()">➕ એડ એન્ત્રી</button>
+    <button onclick="exportToExcel()">📤 Excel Export</button>
+  </div>
+
+  <table id="dataTable">
+    <thead>
+      <tr>
+        <th>ક્રમ</th>
+        <th>તારીખ</th>
+        <th>સ્થળનુ નામ</th>
+        <th>આવક ₹</th>
+        <th>જાવક ₹</th>
+        <th>કુલ ₹</th>
+        <th>બચત ₹</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+    <tfoot>
+      <tr>
+        <td colspan="3">મોટું કુલ</td>
+        <td id="totalIncome">₹0</td>
+        <td id="totalExpense">₹0</td>
+        <td id="totalOverall">₹0</td>
+        <td id="totalSaving">₹0</td>
+        <td></td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <canvas id="monthlyChart" width="600" height="300"></canvas>
+</body>
+</html>
